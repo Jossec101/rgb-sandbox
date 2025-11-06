@@ -1,21 +1,86 @@
 services:
   bitcoind:
-    profiles: [electrum]
-    image: registry.gitlab.com/hashbeam/docker/bitcoind:28.1
-    command: "-fallbackfee=0.0002"
-    volumes:
-      - ./datacore:/srv/app/.bitcoin
-  electrs:
-    profiles: [electrum]
-    image: registry.gitlab.com/hashbeam/docker/electrs:0.10.9
-    depends_on:
-      - bitcoind
+    container_name: polar-n1-backend
+    environment:
+      USERID: ${USERID:-1000}
+      GROUPID: ${GROUPID:-1000}
+    stop_grace_period: 5m
+    image: polarlightning/bitcoind:${BITCOIND_VERSION:-29.0}
+    command: >-
+      bitcoind -server=1 -regtest=1 -rpcauth=polaruser:5e5e98c21f5c814568f8b55d83b23c1c$$066b03f92df30b11de8e4b1b1cd5b1b4281aa25205bd57df9be82caf97a05526 -zmqpubrawblock=tcp://0.0.0.0:28334 -zmqpubrawtx=tcp://0.0.0.0:28335 -zmqpubhashblock=tcp://0.0.0.0:28336 -txindex=1 -dnsseed=0 -upnp=0 -rpcbind=0.0.0.0 -rpcallowip=0.0.0.0/0 -rpcport=18443 -rest -listen=1 -listenonion=0 -fallbackfee=0.0002 -whitelist=0.0.0.0/0
     ports:
-      - 50001:50001
+      - 18443:18443
     volumes:
-      - ./dataelectrs:/srv/app/db
+      - bitcoin_data:/home/bitcoin/.bitcoin
+  mempool-frontend-btc:
+    environment:
+      FRONTEND_HTTP_PORT: "8080"
+      BACKEND_MAINNET_HTTP_HOST: "mempool-backend-btc"
+      LIQUID_ENABLED: false
+      LIQUID_TESTNET_ENABLED: false
+    image: mempool/frontend:latest
+    container_name: mempool_frontend_btc
+    user: "1000:1000"
+    restart: always
+    command: "./wait-for mempool-db-btc:3306 --timeout=720 -- nginx -g 'daemon off;'"
+    ports:
+      - 7084:8080
+  mempool-backend-btc:
+    environment:
+      MEMPOOL_BACKEND: "electrum"
+      CORE_RPC_HOST: "host.docker.internal"
+      CORE_RPC_PORT: "18443"
+      CORE_RPC_USERNAME: "polaruser"
+      CORE_RPC_PASSWORD: "polarpass"
+      DATABASE_ENABLED: "true"
+      DATABASE_HOST: "mempool-db-btc"
+      DATABASE_DATABASE: "mempool_btc"
+      DATABASE_USERNAME: "mempool"
+      DATABASE_PASSWORD: "mempool"
+      STATISTICS_ENABLED: "true"
+      ELECTRUM_HOST: "electrs"
+      ELECTRUM_PORT: "50001"
+      ELECTRUM_TLS_ENABLED: "false"
+    image: mempool/backend:latest
+    container_name: mempool_backend_btc
+    user: "1000:1000"
+    restart: always
+    command: "./wait-for-it.sh mempool-db-btc:3306 --timeout=720 --strict -- ./start.sh"
+    depends_on:
+      - mempool-db-btc
+    volumes:
+      - mempool_backend_btc_data:/backend/cache
+  mempool-db-btc:
+    environment:
+      MYSQL_DATABASE: "mempool_btc"
+      MYSQL_USER: "mempool"
+      MYSQL_PASSWORD: "mempool"
+      MYSQL_ROOT_PASSWORD: "admin"
+    image: mariadb:10.5.8
+    container_name: mempool_db_btc
+    restart: always
+    volumes:
+      - mempool_db_btc_data:/var/lib/mysql
+  electrs:
+    image: mempool/electrs:latest
+    container_name: electrs
+    command: 
+      - --network=regtest
+      - --daemon-rpc-addr=host.docker.internal:18443
+      - --cookie=polaruser:polarpass
+      - --http-addr=0.0.0.0:3002
+      - --electrum-rpc-addr=0.0.0.0:50001
+      - --db-dir=/data/electrs
+      - --daemon-dir=/home/bitcoin/.bitcoin
+      - --cors=*
+    ports:
+      - "50001:50001"
+      - "3002:3002"
+    volumes:
+      - bitcoin_data:/home/bitcoin/.bitcoin:ro
+      - electrs_data:/data/electrs
+    restart: always
   esplora:
-    profiles: [esplora]
     image: blockstream/esplora:latest
     command: /srv/explorer/run.sh bitcoin-regtest explorer
     environment:
@@ -27,3 +92,8 @@ services:
       - 8094:80
     volumes:
       - ./dataesplora:/data
+volumes:
+  bitcoin_data:
+  mempool_backend_btc_data:
+  electrs_data:
+  mempool_db_btc_data:
