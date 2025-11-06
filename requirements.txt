@@ -1,0 +1,10 @@
+# Jupyter and common data analysis libraries for working with notebooks
+notebook
+jupyter
+pandas
+matplotlib
+plotly
+ipykernel
+tqdm
+seaborn
+bash_kernel

@@ -62,23 +62,23 @@ services:
     volumes:
       - mempool_db_btc_data:/var/lib/mysql
   electrs:
-    image: mempool/electrs:latest
+    image: getumbrel/electrs:v0.10.9
     container_name: electrs
-    command: 
+    user: root
+    command:
       - --network=regtest
-      - --daemon-rpc-addr=host.docker.internal:18443
-      - --cookie=polaruser:polarpass
-      - --http-addr=0.0.0.0:3002
+      - --daemon-rpc-addr=bitcoind:18443
+      - --daemon-p2p-addr=bitcoind:18444
+      - --cookie-file=/auth.cookie
       - --electrum-rpc-addr=0.0.0.0:50001
       - --db-dir=/data/electrs
-      - --daemon-dir=/home/bitcoin/.bitcoin
-      - --cors=*
     ports:
       - "50001:50001"
       - "3002:3002"
     volumes:
       - bitcoin_data:/home/bitcoin/.bitcoin:ro
       - electrs_data:/data/electrs
+      - ./auth.cookie:/auth.cookie:ro
     restart: always
   esplora:
     image: blockstream/esplora:latest

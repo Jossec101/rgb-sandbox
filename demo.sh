@@ -123,7 +123,6 @@ _wait_indexers_sync() {
     local block_count
     block_count=$("${BCLI[@]}" getblockcount)
     if [ "$PROFILE" = "electrum" ]; then
-        local electrum_json electrum_res
         # shellcheck disable=2089
         electrum_json="{\"jsonrpc\": \"2.0\", \"method\": \"blockchain.block.header\", \"params\": [$block_count], \"id\": 0}"
         while :; do
@@ -264,7 +263,7 @@ install_rust_crate() {
 # shellcheck disable=2034
 set_aliases() {
     _subtit "setting command aliases"
-    BITCOIND_CLI=("docker" "compose" "exec" "-T" "-u" "blits" "bitcoind" "bitcoin-cli" "-regtest")
+    BITCOIND_CLI=("docker" "compose" "exec" "-T" "bitcoind" "bitcoin-cli" "-regtest" "-rpcuser=polaruser" "-rpcpassword=polarpass")
     BPHOT=("bp-wallet/bin/bp-hot")
     BP=("bp-wallet/bin/bp")
     ESPLORA_CLI=("docker" "compose" "exec" "-T" "esplora" "cli")
@@ -280,9 +279,9 @@ set_aliases() {
 stop_services() {
     _subtit "stopping services"
     # cleanly stop esplora
-    if $COMPOSE ps |grep -q esplora; then
+    if docker compose ps 2>/dev/null |grep -q esplora; then
         for SRV in socat electrs; do
-            $COMPOSE exec esplora bash -c "sv -w 60 force-stop /etc/service/$SRV"
+            docker compose exec esplora bash -c "sv -w 60 force-stop /etc/service/$SRV"
         done
 
     fi
@@ -294,7 +293,14 @@ start_services() {
     _subtit "checking data directories"
     for data_dir in data0 data1 data2; do
        if [ -d "$data_dir" ]; then
-           if [ "$(stat -c %u $data_dir)" = "0" ]; then
+           # macOS compatibility: use -f for BSD stat instead of -c for GNU stat
+           local dir_uid
+           if stat -c %u "$data_dir" &> /dev/null; then
+               dir_uid=$(stat -c %u "$data_dir")
+           else
+               dir_uid=$(stat -f %u "$data_dir")
+           fi
+           if [ "$dir_uid" = "0" ]; then
                echo "existing data directory \"$data_dir\" found, owned by root"
                echo "please remove it and try again (e.g. 'sudo rm -r $data_dir')"
                _die "cannot continue"
