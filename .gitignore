@@ -22,3 +22,4 @@ consignment_*.rgb.yaml
 
 # temporary command output
 trace.out
+consignment.yaml
