@@ -23,3 +23,9 @@ consignment_*.rgb.yaml
 # temporary command output
 trace.out
 consignment.yaml
+issuer_derive_out.txt
+issuer_seed_out.txt
+issuer_utxos.txt
+rcpt_utxos.txt
+receiver_derive_out.txt
+receiver_seed_out.txt
