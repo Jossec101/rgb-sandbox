@@ -1,3 +1,6 @@
 [submodule "rgb-schemas"]
 	path = rgb-schemas
 	url = https://github.com/rgb-protocol/rgb-schemas
+[submodule "rgb-lightning-node"]
+	path = rgb-lightning-node
+	url = https://github.com/RGB-Tools/rgb-lightning-node

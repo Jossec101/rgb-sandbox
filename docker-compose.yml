@@ -74,7 +74,6 @@ services:
       - --db-dir=/data/electrs
     ports:
       - "50001:50001"
-      - "3002:3002"
     volumes:
       - bitcoin_data:/home/bitcoin/.bitcoin:ro
       - electrs_data:/data/electrs
@@ -92,8 +91,86 @@ services:
       - 8094:80
     volumes:
       - ./dataesplora:/data
+  rgb-proxy:
+    image: ghcr.io/rgb-tools/rgb-proxy-server:0.3.0
+    container_name: rgb-proxy
+    ports:
+      - "3000:3000"
+    restart: always
+  rln-alice:
+    build:
+      context: ./rgb-lightning-node
+      dockerfile: Dockerfile
+      args:
+        - BUILDKIT_INLINE_CACHE=1
+    container_name: rln-alice
+    command: >
+      /data/alice
+      --daemon-listening-port=3001
+      --ldk-peer-listening-port=9735
+      --network=regtest
+      --disable-authentication
+    ports:
+      - "3001:3001"
+      - "9735:9735"
+    volumes:
+      - rln_alice_data:/data/alice
+    depends_on:
+      - bitcoind
+      - electrs
+      - rgb-proxy
+    restart: always
+  rln-bob:
+    build:
+      context: ./rgb-lightning-node
+      dockerfile: Dockerfile
+      args:
+        - BUILDKIT_INLINE_CACHE=1
+    container_name: rln-bob
+    command: >
+      /data/bob
+      --daemon-listening-port=3002
+      --ldk-peer-listening-port=9736
+      --network=regtest
+      --disable-authentication
+    ports:
+      - "3002:3002"
+      - "9736:9736"
+    volumes:
+      - rln_bob_data:/data/bob
+    depends_on:
+      - bitcoind
+      - electrs
+      - rgb-proxy
+    restart: always
+  rln-carol:
+    build:
+      context: ./rgb-lightning-node
+      dockerfile: Dockerfile
+      args:
+        - BUILDKIT_INLINE_CACHE=1
+    container_name: rln-carol
+    command: >
+      /data/carol
+      --daemon-listening-port=3003
+      --ldk-peer-listening-port=9737
+      --network=regtest
+      --disable-authentication
+    ports:
+      - "3003:3003"
+      - "9737:9737"
+    volumes:
+      - rln_carol_data:/data/carol
+    depends_on:
+      - bitcoind
+      - electrs
+      - rgb-proxy
+    restart: always
 volumes:
   bitcoin_data:
   mempool_backend_btc_data:
   electrs_data:
   mempool_db_btc_data:
+  rln_alice_data:
+  rln_bob_data:
+  rln_carol_data:
